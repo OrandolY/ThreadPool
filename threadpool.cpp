@@ -1,5 +1,10 @@
 #include "threadpool.h"
 #include <functional>
+#include <iostream>
+#include <vector>
+#include <stddef.h>
+#include <thread>
+
 
 const int TASK_MAX_THRESHHOLD = 1024;
 
@@ -50,7 +55,7 @@ void ThreadPool::start(int initThreadSize)
     //考虑线程公平性 先集中创建再启动
     for(int i = 0; i < initThreadSize_; i++)
     {
-        threads_.emplace_back(new Thread(std::bind(&ThreadPool::threadFunc, this))); //绑定器和函数对象的概念//设计cpp高级课程
+        threads_.emplace_back(new Thread(std::bind(&ThreadPool::ThreadFunc, this))); //绑定器和函数对象的概念//设计cpp高级课程
     }
 
     //启动所有线程
@@ -62,14 +67,26 @@ void ThreadPool::start(int initThreadSize)
 }
 
 //定义线程函数
-void ThreadPool::threadFunc()//
+void ThreadPool::ThreadFunc()//
 {
-
+    std::cout << "begin threadFunc" << std::endl;
+    std::cout << std::this_thread::get_id() << std::endl;
+    std::cout << "end threadFunc" << std::endl;
 }
 
 /////线程方案实现
+
+    //线程构造
+Thread::Thread(ThreadFunc func)
+    : func_(func) //把传进来的函数变量用成员接收
+{}
+    //线程析构
+Thread::~Thread() {}
+
 void Thread::start()
 {
-    //执行一个线程函数
+    //创建线程 执行一个线程函数
+    std::thread t(func_);  //cpp11 线程对象t 线程函数func_
+    t.detach();  //设置分离线程  不让线程函数挂 ~~~  pthread_detach
 }
 

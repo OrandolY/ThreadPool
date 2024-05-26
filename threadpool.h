@@ -12,6 +12,7 @@
 #include <atomic>
 #include <mutex>//互斥锁
 #include <condition_variable>//条件变量
+#include <functional>
 
 /*实现选择模式*/
 enum class PoolMode    //enum枚举类型//给枚举项加上类型，可杜绝枚举类型不同但同名冲突的情况
@@ -29,12 +30,17 @@ public:
     virtual void run() = 0; //修饰虚函数
 };
 
+//线程类型
 class Thread
 {
 public:
+    using ThreadFunc = std::function<void()>;
+    Thread(ThreadFunc func);
+    ~Thread();
     //启动线程
     void start();
 private:
+    ThreadFunc func_; //存储一个线程函数的对象
 };
 
 /*线程池类型*/
@@ -67,7 +73,7 @@ public:
 
 private:
     //定义线程函数
-    void threadFunc();
+    void ThreadFunc();
 
 private:
     //threadpool(/* args */);
