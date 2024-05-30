@@ -11,9 +11,9 @@ const int TASK_MAX_THRESHHOLD = 1024;
 /* 线程池构造 */
 ThreadPool::ThreadPool()
     :initThreadSize_(0)
-    ,taskSize_(0)
-    ,taskQueMaxThreshHold_(TASK_MAX_THRESHHOLD)
-    ,poolMode_(PoolMode::MODE_FIXED)
+    , taskSize_(0)
+    , taskQueMaxThreshHold_(TASK_MAX_THRESHHOLD)
+    , poolMode_(PoolMode::MODE_FIXED)
 {}
 
 /* 线程池析构 */
@@ -53,13 +53,15 @@ void ThreadPool::start(int initThreadSize)
 
     //创建线程对象 同时把线程函数给到thread对象
     //考虑线程公平性 先集中创建再启动
-    for(int i = 0; i < initThreadSize_; i++)
+    for (int i = 0; i < initThreadSize_; i++)
     {
-        threads_.emplace_back(new Thread(std::bind(&ThreadPool::ThreadFunc, this))); //绑定器和函数对象的概念//设计cpp高级课程
+        //创建thread线程对象时，把线程函数给到thread线程对象
+        auto ptr = std::make_unique<Thread>(std::bind(&ThreadPool::ThreadFunc, this));
+        threads_.emplace_back(ptr); //绑定器和函数对象的概念//设计cpp高级课程
     }
 
     //启动所有线程
-    for(int i = 0; i < initThreadSize_; i++)
+    for (int i = 0; i < initThreadSize_; i++)
     {
         threads_[i]->start();//threads数组里的thread对象 它自己的启动函数
         //启动线程本身要有执行的线程函数的
@@ -80,7 +82,7 @@ void ThreadPool::ThreadFunc()//
 Thread::Thread(ThreadFunc func)
     : func_(func) //把传进来的函数变量用成员接收
 {}
-    //线程析构
+//线程析构
 Thread::~Thread() {}
 
 void Thread::start()

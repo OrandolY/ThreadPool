@@ -34,7 +34,7 @@ public:
 class Thread
 {
 public:
-    using ThreadFunc = std::function<void()>;
+    using ThreadFunc = std::function<void()>;//functional 头文件
     Thread(ThreadFunc func);
     ~Thread();
     //启动线程
@@ -52,7 +52,7 @@ public:
 
     //设置线程池工作模式
     void setMode(PoolMode mode);
-    
+
     /*
     //设置初始线程数量
     void setInitThreadSize(int size);
@@ -65,7 +65,7 @@ public:
     void submitTask(std::shared_ptr<Task> sp);//让用户直接传智能指针进来，规避生命周期太短的任务。
 
     //开启线程池
-    void start(int initThreadSize = 2);
+    void start(int initThreadSize = 4);
 
     //禁止 不让用户这样 对线程池本身进行拷贝构造和赋值 //可以单独构造一个线程池对象
     ThreadPool(const ThreadPool&) = delete;
@@ -77,11 +77,11 @@ private:
 
 private:
     //threadpool(/* args */);
-    std::vector<Thread*> threads_;//线程列表
+    std::vector<std::unique_ptr <Thread>> threads_;//线程列表//只能指针避免释放资源麻烦 把Thread*指针换成unique_ptr类型
     size_t initThreadSize_;   //初始线程数量  //size_t 无符号int
 
     std::queue<std::shared_ptr<Task>> taskQue;//任务队列 //基类指针//需要保持生命周期//run完才结束//因此使用只能指针
-    
+
     /*记录任务数量//++--考虑线程安全和轻量*/
     std::atomic_uint taskSize_; //任务数量
     int taskQueMaxThreshHold_;  //任务队列数量上限阈值//最好提供给用户接口
