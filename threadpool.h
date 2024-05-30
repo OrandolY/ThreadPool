@@ -77,7 +77,7 @@ private:
 
 private:
     //threadpool(/* args */);
-    std::vector<std::unique_ptr <Thread>> threads_;//线程列表//只能指针避免释放资源麻烦 把Thread*指针换成unique_ptr类型
+    std::vector<std::unique_ptr <Thread>> threads_;//线程列表//只能指针避免释放资源麻烦 把Thread*指针换成unique_ptr类型 2024.5.31
     size_t initThreadSize_;   //初始线程数量  //size_t 无符号int
 
     std::queue<std::shared_ptr<Task>> taskQue;//任务队列 //基类指针//需要保持生命周期//run完才结束//因此使用只能指针
