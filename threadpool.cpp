@@ -39,10 +39,28 @@ void ThreadPool::settaskQueMaxThreshHold(int threshhold)
     taskQueMaxThreshHold_ = threshhold;
 }
 
-//给线程池提交任务
+//给线程池提交任务   用户调用该接口，传入任务对象，生产任务
 void ThreadPool::submitTask(std::shared_ptr<Task> sp)//让用户直接传智能指针进来，规避生命周期太短的任务。
 {
+    //获取锁
+    std::unique_lock<std::mutex> lock(taskQueMtx_);
 
+    //线程通信--等待任务队列有空余节点
+    /*基本实现
+    while (taskQue_.size() == taskQueMaxThreshHold_)
+    {
+        notFull_.wait(lock);//改变线程状态
+    }
+    */
+    /*使用封装做*/ //设置wait的超时时间 否则阻塞用户进程太久
+    notFull_.wait(lock, []()->bool { return taskQue_.size() < taskQueMaxThreshHold_; });//通过正则表达式来判断  注意重载的wait的用法
+
+    //若有空余，任务放入任务队列
+    taskQue_.emplace(sp);
+    taskSize_++;
+
+    //放入任务后，线程队列至少有一个线程，必定通知 notEmpty，分配线程执行任务
+    notEmpty_.notify_all();
 }
 
 //开启线程池
@@ -55,9 +73,9 @@ void ThreadPool::start(int initThreadSize)
     //考虑线程公平性 先集中创建再启动
     for (int i = 0; i < initThreadSize_; i++)
     {
-        //创建thread线程对象时，把线程函数给到thread线程对象
+        //创建thread线程对象时，把线程函数给到thread线程对象//注意指针 unique_ptr的使用
         auto ptr = std::make_unique<Thread>(std::bind(&ThreadPool::ThreadFunc, this));
-        threads_.emplace_back(ptr); //绑定器和函数对象的概念//设计cpp高级课程
+        threads_.emplace_back(std::move(ptr)); //绑定器和函数对象的概念//设计cpp高级课程
     }
 
     //启动所有线程
@@ -68,7 +86,7 @@ void ThreadPool::start(int initThreadSize)
     }
 }
 
-//定义线程函数
+//定义线程函数  线程池的所有任务从队列消费任务
 void ThreadPool::ThreadFunc()//
 {
     std::cout << "begin threadFunc" << std::endl;
