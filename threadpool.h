@@ -14,6 +14,59 @@
 #include <condition_variable>//条件变量
 #include <functional>
 
+//Any 类型： 可以接收任意数据的类型 C++17中any类型的关键
+class Any
+{
+public:
+    Any() = default;
+    ~Any() = default;
+    Any(const Any&) = delete;
+    Any& operator=(const Any&) = delete;//左值引用和右值引用的拷贝构造
+    Any(Any&&) = default;//右值引用的拷贝构造
+    Any& operator=(Any&) = default;
+
+    template<typename T>
+    Any(T data) : base_(std::make_unique<Derive<T>(data)>)
+    {} 
+
+    //这个方法又能把any里存储的对象数据取出来
+    template<typename T>
+    T cast_()
+    {
+        //怎么从base_中找到它所指向的Derive对象，从他里面取出data成员变量
+        //基类指针转换成派生类指针 RTTI类型识别
+        Derive<T>* pd = dynamic_cast<Derive<T>*>(base_.get());//取出智能指针的裸指针
+        if (pd == nullptr)
+        {
+            //转换失败，基类和派生类不对应
+            throw "type is unmatch!";
+        }
+        return pd->data_;
+    }
+
+private:
+    //基类类型
+    class Base
+    {
+    public:
+        virtual ~Base() = default;
+    };
+
+    //派生类类型//这个构造函数可以让any接收任意数据
+    template<typename T>
+    class Derive : public Base
+    {
+    public:
+        Derive(T data) : data_(data)
+        {}
+        T data_; //基类指针的派生类对象里 保存了其他任意类型的
+    };
+    
+private:
+    //定义基类的指针
+    std::unique_ptr<Base> base_;
+};
+
 /*实现选择模式*/
 enum class PoolMode    //enum枚举类型//给枚举项加上类型，可杜绝枚举类型不同但同名冲突的情况
 {
@@ -42,6 +95,20 @@ public:
 private:
     ThreadFunc func_; //存储一个线程函数的对象
 };
+
+/*
+example:
+ThreadPool pool;
+pool.start(4);
+
+class MyTask : public Task
+{
+    public:
+        void run() { // 线程代码... }
+};
+
+pool.submitTask(std::make_shared<MyTask>());
+*/
 
 /*线程池类型*/
 class ThreadPool
