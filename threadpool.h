@@ -23,10 +23,10 @@ public:
     Any(const Any&) = delete;
     Any& operator=(const Any&) = delete;//左值引用和右值引用的拷贝构造
     Any(Any&&) = default;//右值引用的拷贝构造
-    Any& operator=(Any&) = default;
+    Any& operator=(Any&&) = default;
 
     template<typename T>
-    Any(T data) : base_(std::make_unique<Derive<T>(data)>)
+    Any(T data) : base_(std::make_unique<Derive<T>>(data))
     {} 
 
     //这个方法又能把any里存储的对象数据取出来
@@ -67,6 +67,59 @@ private:
     std::unique_ptr<Base> base_;
 };
 
+// 实现信号量类
+class Semophore
+{
+public:
+    Semophore(int limit = 0)
+        :resLimit_(limit)
+    {}
+    ~Semophore() = default;
+
+    //获取信号拉
+    void wait()
+    {
+        std::unique_lock<std::mutex> lock(mtx_);
+        //等待 若无则阻塞线程
+        cond_.wait(lock, [&]()->bool {return resLimit_ > 0; });
+        resLimit_--;
+    }
+
+    //增加信号量资源
+    void post()
+    {
+        std::unique_lock<std::mutex> lock(mtx_);
+        resLimit_++;
+        cond_.notify_all();
+    }
+
+private:
+    int resLimit_;
+    std::mutex mtx_;
+    std::condition_variable cond_;
+};
+
+//Task类型的前置声明
+class Task;
+//实现接收 提交到线程池的task任务执行完毕后的返回值类型 Result
+class Result
+{
+public:
+    Result(std::shared_ptr<Task> task, bool isValid = true);
+    ~Result() = default;
+
+    //setvalue 获取任务的返回值
+    void setVal(Any any);
+
+    //如何提供get方法给用户层调用
+    Any get();
+private:
+    Any any_;//存储返回值
+    Semophore sema_;//信号量
+    std::shared_ptr<Task>task_;//指向对应获取返回值的任务对象
+    std::atomic_bool isValid_;//返回值是否有效，比如任务是否提交成功的情况
+};
+
 /*实现选择模式*/
 enum class PoolMode    //enum枚举类型//给枚举项加上类型，可杜绝枚举类型不同但同名冲突的情况
 {
@@ -79,8 +132,15 @@ enum class PoolMode    //enum枚举类型//给枚举项加上类型，可杜绝�
 class Task
 {
 public:
+    Task();
+    ~Task() = default;
+    void exec();
+    void setResult(Result* res);
     //用户自定义任务类型，从Task继承，重写run方法，实现自定义任务处理
-    virtual void run() = 0; //修饰虚函数
+    virtual Any run() = 0; //修饰虚函数
+
+private:
+    Result* result_;
 };
 
 //线程类型
@@ -129,7 +189,7 @@ public:
     void settaskQueMaxThreshHold(int threshhold);
 
     //给线程池提交任务
-    void submitTask(std::shared_ptr<Task> sp);//让用户直接传智能指针进来，规避生命周期太短的任务。
+    Result submitTask(std::shared_ptr<Task> sp);//让用户直接传智能指针进来，规避生命周期太短的任务。
 
     //开启线程池
     void start(int initThreadSize = 4);

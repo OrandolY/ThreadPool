@@ -40,7 +40,7 @@ void ThreadPool::settaskQueMaxThreshHold(int threshhold)
 }
 
 //给线程池提交任务   用户调用该接口，传入任务对象，生产任务
-void ThreadPool::submitTask(std::shared_ptr<Task> sp)//让用户直接传智能指针进来，规避生命周期太短的任务。
+Result ThreadPool::submitTask(std::shared_ptr<Task> sp)//让用户直接传智能指针进来，规避生命周期太短的任务。
 {
     //获取锁
     std::unique_lock<std::mutex> lock(taskQueMtx_);
@@ -58,7 +58,7 @@ void ThreadPool::submitTask(std::shared_ptr<Task> sp)//让用户直接传智能�
     {
         //返回false ：等待一秒钟但仍不能满足notfull条件
         std::cerr << "task queue is full, task submit fail." << std::endl;
-        return;
+        return Result(sp, false);//线程执行完后pop，task对象就被析构了，不可用task->getResult();
     }
     //若有空余，任务放入任务队列
     taskQue_.emplace(sp);
@@ -66,6 +66,9 @@ void ThreadPool::submitTask(std::shared_ptr<Task> sp)//让用户直接传智能�
 
     //放入任务后，线程队列至少有一个线程，必定通知 notEmpty，分配线程执行任务
     notEmpty_.notify_all();
+
+    //返回任务的result对象
+    return Result(sp);
 }
 
 //开启线程池
@@ -133,7 +136,8 @@ void ThreadPool::ThreadFunc()//
             std::cout << "tid:" << std::this_thread::get_id()
                 << "执行任务成功!" << std::endl;
             //当前线程负责执行这个任务
-            task->run();
+            //task->run();执行任务并把任务返回值通过setVal给到Result
+            task->exec();
         }
         else {
             std::cout << "tid:" << std::this_thread::get_id()
@@ -142,7 +146,7 @@ void ThreadPool::ThreadFunc()//
     }
 }
 
-/////线程方案实现
+////////////////////////////////////线程方案实现
 
     //线程构造
 Thread::Thread(ThreadFunc func)
@@ -158,3 +162,45 @@ void Thread::start()
     t.detach();  //设置分离线程  不让线程函数挂 ~~~  pthread_detach
 }
 
+////////////////////////////////////task方法实现
+Task::Task()
+    : result_(nullptr)
+{}
+
+void Task::exec()
+{
+    if (result_ != nullptr) 
+    {
+        result_->setVal(run());//发生多态调用
+    }
+}
+
+void Task::setResult(Result* res)
+{
+    result_ = res;
+}
+
+////////////////////////////////////Result 方法的实现
+Result::Result(std::shared_ptr<Task> task, bool isValid)
+    :isValid_(isValid)
+    ,task_(task)
+{
+    task_->setResult(this);
+}
+
+Any Result::get()
+{
+    if (!isValid_)
+    {
+        return "";
+    }
+    sema_.wait();//等待task执行完，阻塞用户线程
+    return std::move(any_);
+}
+
+void Result::setVal(Any any)
+{
+    //存储task返回值
+    this->any_ = std::move(any);
+    sema_.post(); //已经获取的任务返回值，增加信号量资源
+}

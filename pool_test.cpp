@@ -46,18 +46,11 @@ int main()
     ThreadPool pool;
     pool.start(4);
 
-    //Ques2 如何设计Result机制,未执行完时要阻塞用户需求；
-    Result res = pool.submitTask(std::make_shared<MyTask>());
-    int sum = res.get().cast<int>(); //get 返回的any类型如何转为其他类型 //提取什么类型
-    
-    pool.submitTask(std::make_shared<MyTask>());
-    pool.submitTask(std::make_shared<MyTask>());
-    pool.submitTask(std::make_shared<MyTask>());
-    pool.submitTask(std::make_shared<MyTask>());
-    pool.submitTask(std::make_shared<MyTask>());
-    pool.submitTask(std::make_shared<MyTask>());
-    pool.submitTask(std::make_shared<MyTask>());
-    pool.submitTask(std::make_shared<MyTask>());
+    //Ques2 如何设计Result机制,未执行完时要阻塞用户需求;
+    Result res = pool.submitTask(std::make_shared<MyTask>(1, 10000000));
+     
+    int sum = res.get().cast_<long>(); //get 返回的any类型如何转为其他类型 //提取什么类型
+
 
     getchar();
     //std::this_thread::sleep_for(std::chrono::seconds(5));
