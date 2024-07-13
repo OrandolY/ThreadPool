@@ -13,6 +13,7 @@
 #include <mutex>//互斥锁
 #include <condition_variable>//条件变量
 #include <functional>
+#include <unordered_map>
 
 //Any 类型： 可以接收任意数据的类型 C++17中any类型的关键
 class Any
@@ -68,31 +69,32 @@ private:
 };
 
 // 实现信号量类
-class Semophore
+class Semaphore
 {
 public:
-    Semophore(int limit = 0)
+    Semaphore(int limit = 0)
         :resLimit_(limit)
     {}
-    ~Semophore() = default;
+    ~Semaphore() = default;
 
-    //获取信号拉
+    // 获取一个信号量资源
     void wait()
     {
         std::unique_lock<std::mutex> lock(mtx_);
-        //等待 若无则阻塞线程
+        // 等待信号量有资源，没有资源的话，会阻塞当前线程
         cond_.wait(lock, [&]()->bool {return resLimit_ > 0; });
         resLimit_--;
     }
 
-    //增加信号量资源
+    // 增加一个信号量资源
     void post()
     {
         std::unique_lock<std::mutex> lock(mtx_);
         resLimit_++;
-        cond_.notify_all();
+        // linux下condition_variable的析构函数什么也没做
+        // 导致这里状态已经失效，无故阻塞
+        cond_.notify_all();  // 等待状态，释放mutex锁 通知条件变量wait的地方，可以起来干活了
     }
-
 private:
     int resLimit_;
     std::mutex mtx_;
@@ -115,7 +117,7 @@ public:
     Any get();
 private:
     Any any_;//存储返回值
-    Semophore sema_;//信号量
+    Semaphore sema_;//信号量
     std::shared_ptr<Task>task_;//指向对应获取返回值的任务对象
     std::atomic_bool isValid_;//返回值是否有效，比如任务是否提交成功的情况
 };
@@ -147,13 +149,17 @@ private:
 class Thread
 {
 public:
-    using ThreadFunc = std::function<void()>;//functional 头文件
+    using ThreadFunc = std::function<void(int)>;//functional 头文件
     Thread(ThreadFunc func);
     ~Thread();
     //启动线程
     void start();
+    int getId()const;
+
 private:
     ThreadFunc func_; //存储一个线程函数的对象
+    static int generateId;
+    int threadId_;//保存线程id
 };
 
 /*
@@ -188,6 +194,9 @@ public:
     //设置task任务队列上限阈值
     void settaskQueMaxThreshHold(int threshhold);
 
+    //设置线程池cache模式下线程上限阈值
+    void setthreadSizeThreshHold(int threshhold);
+
     //给线程池提交任务
     Result submitTask(std::shared_ptr<Task> sp);//让用户直接传智能指针进来，规避生命周期太短的任务。
 
@@ -200,17 +209,26 @@ public:
 
 private:
     //定义线程函数
-    void ThreadFunc();
+    void ThreadFunc(int threadid);
+
+    //check pool运行状态
+    bool checkRunningState() const;
 
 private:
-    //threadpool(/* args */);
-    std::vector<std::unique_ptr <Thread>> threads_;//线程列表//只能指针避免释放资源麻烦 把Thread*指针换成unique_ptr类型
+    //线程列表
+    std::unordered_map<int, std::unique_ptr<Thread>> threads_;
+    
+    //threadpool(/* args */);因为需要把线程对象和id绑定 所以用map存储
+    //std::vector<std::unique_ptr <Thread>> threads_;//线程列表//只能指针避免释放资源麻烦 把Thread*指针换成unique_ptr类型
     size_t initThreadSize_;   //初始线程数量  //size_t 无符号int
+    int threadSizeThreshHold_;  //线程数量上限阈值
+    std::atomic_int curThreadSize_;//记录当前线程池的总线程数量
+    std::atomic_int idleThreadSize_; // 记录空闲线程的数量
 
     std::queue<std::shared_ptr<Task>> taskQue_;//任务队列 //基类指针//需要保持生命周期//run完才结束//因此使用智能指针
 
     /*记录任务数量//++--考虑线程安全和轻量*/
-    std::atomic_uint taskSize_; //任务数量
+    std::atomic_int taskSize_; //任务数量
     int taskQueMaxThreshHold_;  //任务队列数量上限阈值//最好提供给用户接口
 
     std::mutex taskQueMtx_; //使用互斥锁保证任务队列的线程安全
@@ -218,6 +236,7 @@ private:
     std::condition_variable notEmpty_; //任务队列不空
 
     PoolMode poolMode_; // 当前线程池的工作模式
+    std::atomic_bool isPoolRunning_;//表示当前线程池的启动状态
 };
 
 
