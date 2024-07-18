@@ -45,29 +45,49 @@ private:
 
 int main()
 {
-    ThreadPool pool;
-    pool.setMode(PoolMode::MODE_CACHED);
-    //用户自己设置线程池的工作模式
-    pool.start(4);
+    {
+        ThreadPool pool;
+        pool.start(4);
 
-    //Ques2 如何设计Result机制,未执行完时要阻塞用户需求;
-    Result res1 = pool.submitTask(std::make_shared<MyTask>(1, 100000000));
-    Result res2 = pool.submitTask(std::make_shared<MyTask>(100000001, 200000000));
-    Result res3 = pool.submitTask(std::make_shared<MyTask>(200000001, 300000000));
-    //Result res3 = pool.submitTask(std::make_shared<MyTask>(201, 300));
-     
-    uLong sum1 = res1.get().cast_<uLong>(); //get 返回的any类型如何转为其他类型 //提取什么类型
-    uLong sum2 = res2.get().cast_<uLong>();
-    uLong sum3 = res3.get().cast_<uLong>();
-    //uLong sum3 = res1.get().cast_<uLong>();
-    //cout << "--333-----------------------------------------------------" << endl;
+        Result res1 = pool.submitTask(std::make_shared<MyTask>(1, 100000000));
 
-    //Master-Slave 线程模型
-    //Master 分解任务 给各个Slave线程分配任务
-    //等待子线程全部执行完
-    //Master合并结果输出
-    cout << (sum1 + sum2 + sum3) << endl;
+        uLong sum1 = res1.get().cast_<uLong>();
+        std::cout << sum1 << std::endl;
+    }
+    std::cout << "main over" << std::endl;
 
+#if 0
+    //Ques 如果pool析构了，如何把线程池资源全部回收
+    {
+        ThreadPool pool;
+        pool.setMode(PoolMode::MODE_CACHED);
+        //用户自己设置线程池的工作模式
+        pool.start(4);
+
+        //Ques2 如何设计Result机制,未执行完时要阻塞用户需求;
+        Result res1 = pool.submitTask(std::make_shared<MyTask>(1, 100000000));
+        Result res2 = pool.submitTask(std::make_shared<MyTask>(100000001, 200000000));
+        Result res3 = pool.submitTask(std::make_shared<MyTask>(200000001, 300000000));
+        pool.submitTask(std::make_shared<MyTask>(200000001, 300000000));
+
+        pool.submitTask(std::make_shared<MyTask>(200000001, 300000000));
+        pool.submitTask(std::make_shared<MyTask>(200000001, 300000000));
+        //Result res3 = pool.submitTask(std::make_shared<MyTask>(201, 300));
+
+        uLong sum1 = res1.get().cast_<uLong>(); //get 返回的any类型如何转为其他类型 //提取什么类型
+        uLong sum2 = res2.get().cast_<uLong>();
+        uLong sum3 = res3.get().cast_<uLong>();
+        //uLong sum3 = res1.get().cast_<uLong>();
+        //cout << "--333-----------------------------------------------------" << endl;
+
+        //Master-Slave 线程模型
+        //Master 分解任务 给各个Slave线程分配任务
+        //等待子线程全部执行完
+        //Master合并结果输出
+        cout << (sum1 + sum2 + sum3) << endl;
+    }
     getchar();
     //std::this_thread::sleep_for(std::chrono::seconds(5));
+
+#endif
 }

@@ -201,7 +201,7 @@ public:
     Result submitTask(std::shared_ptr<Task> sp);//让用户直接传智能指针进来，规避生命周期太短的任务。
 
     //开启线程池
-    void start(int initThreadSize = 4);
+    void start(int initThreadSize = std::thread::hardware_concurrency());
 
     //禁止 不让用户这样 对线程池本身进行拷贝构造和赋值 //可以单独构造一个线程池对象
     ThreadPool(const ThreadPool&) = delete;
@@ -234,6 +234,7 @@ private:
     std::mutex taskQueMtx_; //使用互斥锁保证任务队列的线程安全
     std::condition_variable notFull_;  //任务队列不满
     std::condition_variable notEmpty_; //任务队列不空
+    std::condition_variable exitCond_; //等待线程全部退出
 
     PoolMode poolMode_; // 当前线程池的工作模式
     std::atomic_bool isPoolRunning_;//表示当前线程池的启动状态
