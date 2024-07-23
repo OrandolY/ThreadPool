@@ -149,7 +149,7 @@ void ThreadPool::ThreadFunc(int threadid)//线程函数执行完 对应线程即
     auto lastTime = std::chrono::high_resolution_clock().now();
 
     //要所有任务执行完 线程池再回收所有资源
-    for (;;)
+    for (;;)//回收
     {
         std::shared_ptr<Task> task;
         {
